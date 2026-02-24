@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BizSense Payments">
+<meta name="theme-color" content="#09090e">
+<title>BizSense Payments</title>
+<link rel="apple-touch-icon" href="https://i.ibb.co/9kdhfkp2/app-cion.png">
+<link rel="icon" type="image/png" href="https://i.ibb.co/9kdhfkp2/app-cion.png">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!--
+===========================================
+  SQL SETUP — Run in Supabase SQL Editor
+  REQUIRED for partial payments to work
+===========================================
+
+-- Add task_date to tasks (if missing)
+ALTER TABLE tasks
+  ADD COLUMN IF NOT EXISTS task_date TIMESTAMPTZ DEFAULT NOW();
+
+-- Add payment_date to payments (if missing)
+ALTER TABLE payments
+  ADD COLUMN IF NOT EXISTS payment_date TIMESTAMPTZ DEFAULT NOW();
+
+-- Backfill existing rows
+UPDATE tasks SET task_date = created_at WHERE task_date IS NULL;
+UPDATE payments SET payment_date = created_at WHERE payment_date IS NULL;
+
+-- REQUIRED: Junction table linking payments to tasks
+-- This is the source of truth for how much has been paid per task
+CREATE TABLE IF NOT EXISTS task_payments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  task_id UUID REFERENCES tasks(id),
+  payment_id UUID REFERENCES payments(id),
+  amount_applied NUMERIC(14,2) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Backfill task_payments for existing fully-paid tasks
+-- (links payment_id already stored on the task)
+INSERT INTO task_payments (task_id, payment_id, amount_applied)
+SELECT t.id, t.payment_id, t.price
+FROM tasks t
+WHERE t.status = 'paid'
+  AND t.payment_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM task_payments tp WHERE tp.task_id = t.id
+  );
+
+===========================================
+-->
+
+<style>
+:root{
+  --bg:#09090e;--sf:#101018;--sf2:#18181f;--sf3:#22222e;
+  --bd:#252535;--ac:#b8f040;--acd:rgba(184,240,64,.1);
+  --ac2:#7c5cf6;--ac2d:rgba(124,92,246,.12);
+  --tx:#ededf5;--mu:#585878;
+  --dg:#ff3d60;--dgd:rgba(255,61,96,.1);
+  --wn:#ffb340;--wnd:rgba(255,179,64,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+/* All numbers use JetBrains Mono for clarity */
+.num,input[type=text].num-in,
+.ba,.piam,.tip,.tipend,.sv,.pay-amt-disp{
+  font-family:'JetBrains Mono',monospace;font-weight:600;letter-spacing:-.5px
+}
+
+/* INSTALL BANNER */
+#ibanner{position:fixed;bottom:0;left:0;right:0;z-index:999;background:var(--sf);border-top:1px solid var(--bd);padding:13px 16px;display:none;align-items:center;gap:11px;animation:slup .4s ease}
+@keyframes slup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+#ibanner.show{display:flex}
+.ibic{width:40px;height:40px;border-radius:10px;object-fit:cover;flex-shrink:0}
+.ibtx{flex:1}.ibtx strong{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;display:block}.ibtx span{font-size:10px;color:var(--mu)}
+.ibbtn{background:var(--ac);color:#09090e;border:none;border-radius:9px;padding:8px 13px;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0}
+.ibx{background:none;border:none;color:var(--mu);font-size:18px;cursor:pointer;line-height:1;flex-shrink:0}
+
+#iosguide{position:fixed;inset:0;z-index:998;background:rgba(0,0,0,.88);backdrop-filter:blur(14px);display:none;align-items:flex-end;justify-content:center;padding:18px}
+#iosguide.show{display:flex}
+.ioc{background:var(--sf);border:1px solid var(--bd);border-radius:22px;padding:24px 20px;width:100%;max-width:400px;text-align:center}
+.ioc img{width:58px;height:58px;border-radius:13px;margin-bottom:11px}
+.ioc h3{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;margin-bottom:5px}
+.ioc p{font-size:11px;color:var(--mu);line-height:1.6;margin-bottom:16px}
+.ist{background:var(--sf2);border-radius:10px;padding:10px;font-size:11px;display:flex;align-items:center;gap:9px;text-align:left;margin-bottom:7px}
+.ist .si{font-size:18px;flex-shrink:0}
+.icl{background:var(--sf2);border:1px solid var(--bd);border-radius:9px;padding:9px 18px;color:var(--mu);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;width:100%;margin-top:3px}
+
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;position:fixed;inset:0;z-index:300;background:var(--bg);overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(100px);opacity:.12;pointer-events:none}
+.b1{width:500px;height:500px;background:var(--ac2);top:-160px;right:-120px}
+.b2{width:350px;height:350px;background:var(--ac);bottom:-100px;left:-80px}
+.lcard{width:100%;max-width:380px;background:var(--sf);border:1px solid var(--bd);border-radius:28px;padding:40px 30px;position:relative;z-index:1;animation:slu .55s cubic-bezier(.16,1,.3,1)}
+@keyframes slu{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+.llogo{text-align:center;margin-bottom:34px}
+.llw{display:inline-block;margin-bottom:14px;animation:glw 3s ease infinite}
+@keyframes glw{0%,100%{box-shadow:0 0 0 0 rgba(184,240,64,.35)}50%{box-shadow:0 0 0 14px rgba(184,240,64,0)}}
+.llimg{width:70px;height:70px;border-radius:18px;object-fit:cover;display:block}
+.llogo h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px}
+.llogo h1 span{color:var(--ac)}
+.llogo p{font-size:10px;color:var(--mu);margin-top:4px;letter-spacing:2.5px;text-transform:uppercase}
+
+.fg{margin-bottom:14px}
+.fg label{display:block;font-size:10px;color:var(--mu);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:7px}
+input,select,textarea{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:12px;color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:14px;padding:13px 15px;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none;font-weight:500}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+select option{background:var(--sf2)}
+textarea{resize:none;min-height:78px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:400}
+.btn{width:100%;padding:15px;border:none;border-radius:13px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .18s;letter-spacing:.3px}
+.btn-p{background:var(--ac);color:#09090e}.btn-p:active{transform:scale(.97)}
+.btn-s{background:var(--sf2);color:var(--tx);border:1px solid var(--bd)}
+.emsg{background:var(--dgd);border:1px solid rgba(255,61,96,.3);border-radius:10px;color:var(--dg);font-size:11px;padding:11px;margin-bottom:14px;text-align:center;display:none}
+
+/* APP */
+#app{display:none;flex-direction:column;min-height:100vh;max-width:430px;margin:0 auto}
+
+.topbar{position:sticky;top:0;z-index:100;background:rgba(9,9,14,.93);backdrop-filter:blur(24px);border-bottom:1px solid var(--bd);padding:11px 15px;display:flex;align-items:center;justify-content:space-between}
+.tbl{display:flex;align-items:center;gap:9px}
+.tbic{width:30px;height:30px;border-radius:8px;object-fit:cover}
+.tblo{font-family:'Syne',sans-serif;font-weight:800;font-size:14px;letter-spacing:-.3px}
+.tblo span{color:var(--ac)}
+.tbr{display:flex;align-items:center;gap:7px}
+.ubg{background:var(--sf2);border:1px solid var(--bd);border-radius:20px;padding:5px 9px;font-size:10px;display:flex;align-items:center;gap:5px;max-width:150px}
+.ubg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rdot{width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
+.rdot.boss{background:var(--ac2)}
+.lob{background:none;border:1px solid var(--bd);border-radius:8px;color:var(--mu);font-size:10px;padding:5px 8px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+
+.content{flex:1;padding:14px;padding-bottom:90px}
+.page{display:none;animation:fdi .3s ease}.page.active{display:block}
+@keyframes fdi{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.ptit{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:3px}
+.psub{font-size:10px;color:var(--mu);letter-spacing:2px;text-transform:uppercase;margin-bottom:18px}
+.shd{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin:16px 0 8px}
+.shd:first-child{margin-top:0}
+
+/* BALANCE CARDS */
+.bcard{background:linear-gradient(135deg,#3a12c8 0%,#7c5cf6 60%,#9f70f5 100%);border-radius:22px;padding:24px 20px;margin-bottom:12px;position:relative;overflow:hidden}
+.bcard::before{content:'';position:absolute;width:180px;height:180px;background:rgba(255,255,255,.07);border-radius:50%;top:-50px;right:-30px;pointer-events:none}
+.bcard::after{content:'';position:absolute;width:140px;height:140px;background:rgba(255,255,255,.04);border-radius:50%;bottom:-50px;left:-10px;pointer-events:none}
+.ecard{background:linear-gradient(135deg,#142808 0%,#1e3d0a 100%);border:1px solid rgba(184,240,64,.18);border-radius:22px;padding:24px 20px;margin-bottom:12px;position:relative;overflow:hidden}
+.ecard .bl{color:rgba(184,240,64,.65)}.ecard .ba{color:var(--ac)}
+.bl{font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.65;margin-bottom:5px}
+.ba{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;line-height:1.1;position:relative;z-index:1;word-break:break-all;letter-spacing:-1px}
+.ba .cur{font-size:13px;opacity:.55;margin-right:3px;font-weight:500}
+.bsb{font-size:9px;opacity:.5;margin-top:5px}
+
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px}
+.scard{background:var(--sf);border:1px solid var(--bd);border-radius:15px;padding:15px 13px}
+.sl{font-size:9px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+.sv{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;word-break:break-all;letter-spacing:-.5px}
+.sv.grn{color:var(--ac)}.sv.pur{color:var(--ac2)}.sv.org{color:var(--wn)}.sv.dng{color:var(--dg)}
+
+/* TASK ITEMS */
+.ti{background:var(--sf);border:1px solid var(--bd);border-radius:15px;padding:13px 13px 13px 17px;margin-bottom:8px;position:relative;overflow:hidden}
+.ti::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.ti.unpaid::before{background:var(--dg)}
+.ti.partial::before{background:var(--wn)}
+.ti.paid::before{background:var(--ac)}
+.tih{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.tit{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;line-height:1.3;flex:1}
+.tipr{text-align:right;flex-shrink:0;min-width:0}
+.tip{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--ac);white-space:nowrap;letter-spacing:-.5px}
+.tipend{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--wn);white-space:nowrap;letter-spacing:-.5px;margin-top:2px}
+.tim{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;padding:3px 7px;border-radius:6px;font-size:9px;letter-spacing:.5px;text-transform:uppercase;font-weight:700}
+.chip.unpaid{background:var(--dgd);color:var(--dg)}
+.chip.paid{background:var(--acd);color:var(--ac)}
+.chip.partial{background:var(--wnd);color:var(--wn)}
+.chip.by{background:var(--sf2);color:var(--mu)}
+.tid{font-size:10px;color:var(--mu);margin-top:5px}
+.dtxt{font-size:12px;color:var(--mu);margin-bottom:6px;line-height:1.6}
+
+/* TASK ACTIONS */
+.ta{display:flex;gap:6px;margin-top:10px}
+.ta-btn{flex:1;padding:8px 5px;border-radius:9px;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:none;transition:all .2s;letter-spacing:.2px}
+.ta-pay{background:var(--acd);border:1px solid rgba(184,240,64,.22);color:var(--ac)}
+.ta-pay:active{background:rgba(184,240,64,.2)}
+.ta-edit{background:var(--sf2);border:1px solid var(--bd);color:var(--mu);font-family:'DM Sans',sans-serif;font-size:10px}
+.ta-edit:active{border-color:var(--ac2);color:var(--ac2)}
+
+/* PAYMENT ITEMS */
+.pi{background:var(--sf);border:1px solid var(--bd);border-radius:15px;padding:13px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.piic{width:40px;height:40px;background:var(--ac2d);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.pii{flex:1;min-width:0}
+.piam{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--ac2);letter-spacing:-.5px}
+.pisb{font-size:10px;color:var(--mu);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pibg{background:var(--sf2);border:1px solid var(--bd);border-radius:7px;padding:3px 7px;font-size:9px;color:var(--mu);white-space:nowrap}
+
+.dghd{font-size:10px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;padding:5px 0 3px;border-bottom:1px solid var(--bd);margin-bottom:8px;margin-top:14px;font-family:'Syne',sans-serif;font-weight:700}
+.dghd:first-child{margin-top:0}
+
+.fcard{background:var(--sf);border:1px solid var(--bd);border-radius:18px;padding:18px;margin-bottom:12px}
+.pw{position:relative}
+.ps{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ac);font-size:11px;font-weight:700;font-family:'Syne',sans-serif;pointer-events:none;z-index:1}
+.pw input{padding-left:50px}
+
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:rgba(9,9,14,.96);backdrop-filter:blur(24px);border-top:1px solid var(--bd);display:flex;padding:5px 6px;padding-bottom:max(5px,env(safe-area-inset-bottom));z-index:100}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 3px;cursor:pointer;border-radius:11px;transition:all .2s;border:none;background:none;color:var(--mu)}
+.ni.active{color:var(--ac)}.ni.active .niw{background:var(--acd)}
+.niw{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:9px;transition:all .2s}
+.nico{font-size:17px;line-height:1}
+.nlbl{font-size:9px;letter-spacing:.4px;text-transform:uppercase;font-family:'DM Sans',sans-serif}
+
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(12px);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+.mo.open{opacity:1;pointer-events:all}
+.modal{width:100%;max-width:430px;background:var(--sf);border:1px solid var(--bd);border-radius:22px 22px 0 0;padding:18px;transform:translateY(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);max-height:90vh;overflow-y:auto}
+.mo.open .modal{transform:translateY(0)}
+.mh{width:34px;height:4px;background:var(--bd);border-radius:2px;margin:0 auto 16px}
+.mt{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:14px}
+
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-14px);background:var(--ac);color:#09090e;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:10px 17px;border-radius:11px;z-index:400;opacity:0;transition:all .3s;white-space:nowrap;max-width:90vw;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.spn{display:flex;justify-content:center;padding:32px}
+.spn::after{content:'';width:26px;height:26px;border:2px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:44px 20px;color:var(--mu)}.empty .em{font-size:34px;margin-bottom:8px}.empty p{font-size:11px}
+.frow{display:flex;gap:7px;margin-bottom:13px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}
+.frow::-webkit-scrollbar{display:none}
+.ftab{padding:7px 13px;border-radius:20px;border:1px solid var(--bd);background:none;color:var(--mu);font-family:'DM Sans',sans-serif;font-size:10px;cursor:pointer;white-space:nowrap;transition:all .2s;letter-spacing:.4px}
+.ftab.active{background:var(--ac);border-color:var(--ac);color:#09090e;font-weight:700}
+.pay-hint{border-radius:10px;padding:10px 13px;margin-bottom:12px;font-size:12px;font-family:'DM Sans',sans-serif}
+input[type=datetime-local]{color-scheme:dark}
+</style>
+</head>
+<body>
+
+<!-- INSTALL BANNER -->
+<div id="ibanner">
+  <img src="https://i.ibb.co/9kdhfkp2/app-cion.png" class="ibic" alt="">
+  <div class="ibtx"><strong>Install BizSense Payments</strong><span>Add to home screen for quick access</span></div>
+  <button class="ibbtn" id="ib-trigger">Install</button>
+  <button class="ibx" onclick="dismissInstall()">✕</button>
+</div>
+
+<div id="iosguide">
+  <div class="ioc">
+    <img src="https://i.ibb.co/9kdhfkp2/app-cion.png" alt="">
+    <h3>Install BizSense Payments</h3>
+    <p>Add to your home screen for the best experience. Quick access, no browser chrome.</p>
+    <div class="ist"><span class="si">⬆️</span><span>Tap the <strong>Share</strong> button in Safari</span></div>
+    <div class="ist"><span class="si">➕</span><span>Tap <strong>"Add to Home Screen"</strong></span></div>
+    <div class="ist"><span class="si">✅</span><span>Tap <strong>Add</strong> to complete</span></div>
+    <button class="icl" onclick="dismissIOS()">Got it — close</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen" style="display:none">
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <div class="lcard">
+    <div class="llogo">
+      <div class="llw"><img src="https://i.ibb.co/9kdhfkp2/app-cion.png" class="llimg" alt="BizSense"></div>
+      <h1>Biz<span>Sense</span></h1>
+      <p>PAYMENTS · LKR LEDGER</p>
+    </div>
+    <div id="lerr" class="emsg"></div>
+    <div class="fg"><label>Username</label><input type="text" id="lun" placeholder="Enter your username" autocomplete="off" autocapitalize="none" spellcheck="false" style="font-family:'JetBrains Mono',monospace"></div>
+    <button class="btn btn-p" onclick="handleLogin()">Access Dashboard →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="tbl">
+      <img src="https://i.ibb.co/9kdhfkp2/app-cion.png" class="tbic" alt="">
+      <div class="tblo">Biz<span>Sense</span></div>
+    </div>
+    <div class="tbr">
+      <div class="ubg"><div class="rdot" id="rdot"></div><span id="udisp"></span></div>
+      <button class="lob" onclick="handleLogout()">Exit</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="pg-dashboard">
+      <div class="ptit" id="dtit">Dashboard</div>
+      <div class="psub" id="dsub">Welcome back</div>
+
+      <div id="boss-dash" style="display:none">
+        <div class="bcard">
+          <div class="bl">💸 TOTAL PENDING</div>
+          <div class="ba"><span class="cur">LKR </span><span id="b-pending">0</span></div>
+          <div class="bsb">Total owed to developer right now</div>
+        </div>
+        <div class="sgrid">
+          <div class="scard">
+            <div class="sl">Total Paid Out</div>
+            <div class="sv pur">LKR <span id="b-paid">0</span></div>
+          </div>
+          <div class="scard">
+            <div class="sl">Unpaid Tasks</div>
+            <div class="sv dng"><span id="b-unpaidct">0</span> tasks</div>
+          </div>
+        </div>
+        <button class="btn btn-s" style="margin-bottom:14px;border-color:var(--ac2);color:var(--ac2)" onclick="openFreePayModal()">💰 Pay Without a Task →</button>
+      </div>
+
+      <div id="dev-dash" style="display:none">
+        <div class="ecard">
+          <div class="bl">⏳ PENDING — YOU ARE OWED</div>
+          <div class="ba"><span class="cur">LKR </span><span id="d-pending">0</span></div>
+          <div class="bsb">Still to receive from boss</div>
+        </div>
+        <div class="sgrid">
+          <div class="scard">
+            <div class="sl">Total Received</div>
+            <div class="sv grn">LKR <span id="d-earned">0</span></div>
+          </div>
+          <div class="scard">
+            <div class="sl">Total Task Value</div>
+            <div class="sv pur">LKR <span id="d-received">0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shd">Recent Tasks</div>
+      <div id="dash-tasks"><div class="spn"></div></div>
+    </div>
+
+    <!-- TASKS -->
+    <div class="page" id="pg-tasks">
+      <div class="ptit">Tasks</div>
+      <div class="psub">All work items · sorted by date</div>
+      <div class="frow">
+        <button class="ftab active" onclick="filterTasks('all',this)">All</button>
+        <button class="ftab" onclick="filterTasks('unpaid',this)">Unpaid</button>
+        <button class="ftab" onclick="filterTasks('partial',this)">Partial</button>
+        <button class="ftab" onclick="filterTasks('paid',this)">Paid</button>
+      </div>
+      <div id="tlist"><div class="spn"></div></div>
+    </div>
+
+    <!-- PAYMENTS -->
+    <div class="page" id="pg-payments">
+      <div class="ptit">Payments</div>
+      <div class="psub">Full payment history</div>
+      <div id="plist"><div class="spn"></div></div>
+    </div>
+
+    <!-- ADD TASK -->
+    <div class="page" id="pg-add">
+      <div class="ptit">Add Task</div>
+      <div class="psub">Log new work item</div>
+      <div class="fcard">
+        <div class="fg"><label>Task Title *</label><input type="text" id="ttitle" placeholder="e.g. Landing page build" style="font-family:'DM Sans',sans-serif;font-size:14px"></div>
+        <div class="fg"><label>Description</label><textarea id="tdesc" placeholder="Details about this task…"></textarea></div>
+        <div class="fg">
+          <label>Price (LKR) *</label>
+          <div class="pw"><span class="ps">LKR</span><input type="text" id="tprice" placeholder="0" inputmode="decimal" oninput="fmtInput(this)"></div>
+        </div>
+        <div class="fg"><label>Date &amp; Time</label><input type="datetime-local" id="tdt"></div>
+        <button class="btn btn-p" onclick="submitTask()">Add Task →</button>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page" id="pg-history">
+      <div class="ptit">History</div>
+      <div class="psub">All activity sorted by date</div>
+      <div class="frow">
+        <button class="ftab active" onclick="filterHist('all',this)">All</button>
+        <button class="ftab" onclick="filterHist('tasks',this)">Tasks</button>
+        <button class="ftab" onclick="filterHist('payments',this)">Payments</button>
+      </div>
+      <div id="hlist"><div class="spn"></div></div>
+    </div>
+
+  </div>
+
+  <nav class="bnav">
+    <button class="ni active" onclick="navigate('dashboard',this)">
+      <div class="niw"><span class="nico">⚡</span></div><span class="nlbl">Home</span>
+    </button>
+    <button class="ni" onclick="navigate('tasks',this)">
+      <div class="niw"><span class="nico">📋</span></div><span class="nlbl">Tasks</span>
+    </button>
+    <button class="ni" onclick="navigate('payments',this)">
+      <div class="niw"><span class="nico">💳</span></div><span class="nlbl">Payments</span>
+    </button>
+    <button class="ni" onclick="navigate('add',this)">
+      <div class="niw"><span class="nico">✏️</span></div><span class="nlbl">Add Task</span>
+    </button>
+    <button class="ni" onclick="navigate('history',this)">
+      <div class="niw"><span class="nico">🕐</span></div><span class="nlbl">History</span>
+    </button>
+  </nav>
+</div>
+
+<!-- PAY MODAL -->
+<div class="mo" id="mo-pay">
+  <div class="modal">
+    <div class="mh"></div>
+    <div class="mt">💰 Record Payment</div>
+    <div id="pay-task-info" style="margin-bottom:14px"></div>
+    <div class="fg">
+      <label>Amount to Pay (LKR) *</label>
+      <div class="pw"><span class="ps">LKR</span><input type="text" id="pamt" placeholder="0" inputmode="decimal" oninput="fmtInput(this);updatePayHint()"></div>
+    </div>
+    <div id="pay-hint" style="display:none" class="pay-hint"></div>
+    <div class="fg">
+      <label>Payment Method</label>
+      <select id="pmeth"><option value="Cash">💵 Cash</option><option value="Bank Transfer">🏦 Bank Transfer</option><option value="Other">🔄 Other</option></select>
+    </div>
+    <div class="fg"><label>Note (optional)</label><input type="text" id="pnote" placeholder="e.g. May payment" style="font-family:'DM Sans',sans-serif;font-size:14px"></div>
+    <div class="fg"><label>Payment Date &amp; Time</label><input type="datetime-local" id="pdt"></div>
+    <button class="btn btn-p" style="margin-bottom:9px" onclick="submitPayment()">Record Payment →</button>
+    <button class="btn btn-s" onclick="closeMo('mo-pay')">Cancel</button>
+  </div>
+</div>
+
+<!-- EDIT DATE MODAL -->
+<div class="mo" id="mo-ed">
+  <div class="modal">
+    <div class="mh"></div>
+    <div class="mt">✏️ Edit Date &amp; Time</div>
+    <div id="edprev" style="margin-bottom:14px"></div>
+    <div class="fg"><label>New Date &amp; Time</label><input type="datetime-local" id="eddt"></div>
+    <button class="btn btn-p" style="margin-bottom:9px" onclick="confirmEditDate()">Save Changes →</button>
+    <button class="btn btn-s" onclick="closeMo('mo-ed')">Cancel</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- FREE PAYMENT MODAL -->
+<div class="mo" id="mo-freepay">
+  <div class="modal">
+    <div class="mh"></div>
+    <div class="mt">💰 Pay Without a Task</div>
+    <div style="background:var(--ac2d);border:1px solid rgba(124,92,246,.2);border-radius:12px;padding:12px;margin-bottom:14px;font-size:11px;color:var(--ac2)">
+      This payment is not linked to any task. It will be recorded as received income for the developer.
+    </div>
+    <div class="fg">
+      <label>Amount (LKR) *</label>
+      <div class="pw"><span class="ps">LKR</span><input type="text" id="fp-amt" placeholder="0" inputmode="decimal" oninput="fmtInput(this)"></div>
+    </div>
+    <div class="fg">
+      <label>Payment Method</label>
+      <select id="fp-meth"><option value="Cash">💵 Cash</option><option value="Bank Transfer">🏦 Bank Transfer</option><option value="Other">🔄 Other</option></select>
+    </div>
+    <div class="fg"><label>Note (optional)</label><input type="text" id="fp-note" placeholder="e.g. Bonus / advance" style="font-family:'DM Sans',sans-serif;font-size:14px"></div>
+    <div class="fg"><label>Payment Date &amp; Time</label><input type="datetime-local" id="fp-dt"></div>
+    <button class="btn btn-p" style="margin-bottom:9px" onclick="submitFreePayment()">Record Payment →</button>
+    <button class="btn btn-s" onclick="closeMo('mo-freepay')">Cancel</button>
+  </div>
+</div>
+
+<script>
+const SB_URL='https://nxaptfdqcyvnkaiqftis.supabase.co';
+const SB_KEY='sb_publishable_EkcSLNhdM3vSJUwE05euvQ_Hi-ah-lm';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+let CU=null,AT=[],AP=[],FI='all',HFI='all',PAY_TASK=null,PET=null;
+let deferredPrompt=null;
+
+// ── NUMBER UTILS ───────────────────────────────────────
+function commaFmt(n){
+  if(n===null||n===undefined||n==='')return'';
+  const s=String(n).replace(/[^\d.]/g,'');
+  const p=s.split('.');
+  p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return p.join('.');
+}
+function lkr(n){
+  const v=parseFloat(n||0);
+  return v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function parseRaw(el){return parseFloat(String(el.value).replace(/,/g,''))||0;}
+function fmtInput(el){
+  const pos=el.selectionStart,oldLen=el.value.length;
+  const raw=el.value.replace(/[^\d.]/g,'');
+  const parts=raw.split('.');
+  parts[0]=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  el.value=parts.join('.');
+  const diff=el.value.length-oldLen;
+  try{el.setSelectionRange(pos+diff,pos+diff);}catch(e){}
+}
+
+// ── PWA ────────────────────────────────────────────────
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredPrompt=e;
+  if(!localStorage.getItem('bs_nodismiss'))document.getElementById('ibanner').classList.add('show');
+});
+document.getElementById('ib-trigger').addEventListener('click',async()=>{
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  const{outcome}=await deferredPrompt.userChoice;
+  deferredPrompt=null;
+  document.getElementById('ibanner').classList.remove('show');
+});
+function dismissInstall(){document.getElementById('ibanner').classList.remove('show');localStorage.setItem('bs_nodismiss','1');}
+function dismissIOS(){document.getElementById('iosguide').classList.remove('show');localStorage.setItem('bs_nodismiss','1');}
+function checkPWA(){
+  if(window.navigator.standalone||window.matchMedia('(display-mode:standalone)').matches)return;
+  if(localStorage.getItem('bs_nodismiss'))return;
+  if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream)document.getElementById('iosguide').classList.add('show');
+}
+
+// ── AUTH ───────────────────────────────────────────────
+async function handleLogin(){
+  const un=document.getElementById('lun').value.trim().toLowerCase();
+  const err=document.getElementById('lerr');err.style.display='none';
+  if(!un){err.textContent='Please enter your username.';err.style.display='block';return;}
+  const{data,error}=await sb.from('users').select('*').eq('username',un).single();
+  if(error||!data){err.textContent='User not found. Check your username.';err.style.display='block';return;}
+  CU=data;localStorage.setItem('bsu',JSON.stringify(data));showApp();
+}
+function handleLogout(){
+  localStorage.removeItem('bsu');CU=null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+}
+function showApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('udisp').textContent=CU.name+' · '+CU.role;
+  if(CU.role==='boss')document.getElementById('rdot').classList.add('boss');
+  document.getElementById('tdt').value=localDT();
+  navigate('dashboard',document.querySelector('.ni'));
+}
+
+// ── NAV ────────────────────────────────────────────────
+function navigate(pg,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('pg-'+pg).classList.add('active');
+  if(el)el.classList.add('active');
+  if(pg==='dashboard')loadDash();
+  else if(pg==='tasks')loadTasks();
+  else if(pg==='payments')loadPays();
+  else if(pg==='history')loadHist();
+}
+
+// ── DASHBOARD ──────────────────────────────────────────
+async function loadDash(){
+  document.getElementById('dsub').textContent='Welcome, '+CU.name;
+  const[tr,pr,tpr]=await Promise.all([
+    sb.from('tasks').select('*').order('task_date',{ascending:false}),
+    sb.from('payments').select('*').order('payment_date',{ascending:false}),
+    sb.from('task_payments').select('*')
+  ]);
+  AP=pr.data||[];
+  // Compute amount_paid per task from task_payments junction
+  const tpRows=tpr.data||[];
+  AT=(tr.data||[]).map(t=>{
+    const paid=tpRows.filter(r=>r.task_id===t.id).reduce((s,r)=>s+parseFloat(r.amount_applied||0),0);
+    return{...t,_paid:paid};
+  });
+  AT=sortDT(AT,'task_date');
+
+  // Totals
+  const totalTaskValue=AT.reduce((s,t)=>s+parseFloat(t.price||0),0);
+  // Total received = all payments made (including free payments)
+  const totalReceived=AP.reduce((s,p)=>s+parseFloat(p.amount||0),0);
+  // Pending = sum of (price - paid) per task only (free payments don't reduce task pending)
+  const taskPending=AT.reduce((s,t)=>s+Math.max(0,parseFloat(t.price||0)-t._paid),0);
+  const notFullyPaid=AT.filter(t=>taskStatus(t)!=='paid');
+
+  if(CU.role==='boss'){
+    document.getElementById('boss-dash').style.display='block';
+    document.getElementById('dev-dash').style.display='none';
+    document.getElementById('b-pending').textContent=lkr(taskPending);
+    document.getElementById('b-paid').textContent=lkr(totalReceived);
+    document.getElementById('b-unpaidct').textContent=notFullyPaid.length;
+  }else{
+    document.getElementById('dev-dash').style.display='block';
+    document.getElementById('boss-dash').style.display='none';
+    document.getElementById('d-pending').textContent=lkr(taskPending);
+    document.getElementById('d-earned').textContent=lkr(totalReceived); // what boss actually paid me
+    document.getElementById('d-received').textContent=lkr(totalTaskValue); // total contracted value
+  }
+
+  const recent=AT.slice(0,5);
+  const el=document.getElementById('dash-tasks');
+  el.innerHTML=recent.length?recent.map(t=>rTask(t,true)).join(''):'<div class="empty"><div class="em">📋</div><p>No tasks yet</p></div>';
+}
+
+// ── TASKS ──────────────────────────────────────────────
+async function loadTasks(){
+  document.getElementById('tlist').innerHTML='<div class="spn"></div>';
+  const[tr,tpr]=await Promise.all([
+    sb.from('tasks').select('*'),
+    sb.from('task_payments').select('*')
+  ]);
+  const tpRows=tpr.data||[];
+  AT=sortDT((tr.data||[]).map(t=>{
+    const paid=tpRows.filter(r=>r.task_id===t.id).reduce((s,r)=>s+parseFloat(r.amount_applied||0),0);
+    return{...t,_paid:paid};
+  }),'task_date');
+  renderTList();
+}
+function filterTasks(f,el){FI=f;document.querySelectorAll('#pg-tasks .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderTList();}
+function renderTList(){
+  const list=FI==='all'?AT:AT.filter(t=>taskStatus(t)===FI);
+  const el=document.getElementById('tlist');
+  if(!list.length){el.innerHTML='<div class="empty"><div class="em">📋</div><p>No tasks found</p></div>';return;}
+  el.innerHTML=buildGroups(list,'task_date',t=>rTask(t,true));
+}
+
+function taskStatus(t){
+  const paid=parseFloat(t._paid||0);
+  const price=parseFloat(t.price||0);
+  if(paid<=0)return'unpaid';
+  if(paid>=price)return'paid';
+  return'partial';
+}
+
+function rTask(t,showActions){
+  const status=taskStatus(t);
+  const price=parseFloat(t.price||0);
+  const amtPaid=parseFloat(t._paid||0);
+  const remaining=Math.max(0,price-amtPaid);
+  const pct=price>0?Math.round((amtPaid/price)*100):0;
+  const isBoss=CU&&CU.role==='boss';
+  const isDev=CU&&CU.role==='developer';
+
+  let chipHtml='';
+  if(status==='paid')chipHtml='<span class="chip paid">✓ PAID</span>';
+  else if(status==='partial')chipHtml=`<span class="chip partial">⬤ ${pct}% PAID</span>`;
+  else chipHtml=`<span class="chip partial" style="background:var(--wnd);color:var(--wn)">0% PAID</span>`;
+
+  // Show remaining amount (what's still owed), not full price
+  const displayPrice = status==='paid' ? price : remaining;
+  const priceBlock=`<div class="tipr">
+    <div class="tip" style="${status!=='paid'?'color:var(--wn)':''}">${lkr(displayPrice)}</div>
+    ${status==='partial'?`<div class="tipend">of ${lkr(price)}</div>`:''}
+    ${status==='unpaid'?`<div class="tipend">full: ${lkr(price)}</div>`:''}
+  </div>`;
+
+  let actions='';
+  if(showActions){
+    const btns=[];
+    if(status!=='paid'&&isBoss)btns.push(`<button class="ta-btn ta-pay" onclick="openPay('${t.id}')">💰 Pay</button>`);
+    if(isDev)btns.push(`<button class="ta-btn ta-edit" onclick="openED('${t.id}')">✏️ Edit Date</button>`);
+    if(btns.length)actions=`<div class="ta">${btns.join('')}</div>`;
+  }
+
+  const paidInfo=t.paid_date?` · Fully paid ${fdt(t.paid_date)}`:'';
+  return`<div class="ti ${status}">
+    <div class="tih"><div class="tit">${esc(t.title)}</div>${priceBlock}</div>
+    ${t.description?`<div class="dtxt">${esc(t.description)}</div>`:''}
+    <div class="tim">${chipHtml}<span class="chip by">by ${esc(t.created_by_name||'?')}</span></div>
+    <div class="tid">🕐 ${fdt(t.task_date||t.created_at)}${paidInfo}</div>
+    ${actions}
+  </div>`;
+}
+
+// ── PAY MODAL ──────────────────────────────────────────
+function openPay(taskId){
+  PAY_TASK=AT.find(t=>t.id===taskId);
+  if(!PAY_TASK)return;
+  const price=parseFloat(PAY_TASK.price||0);
+  const paid=parseFloat(PAY_TASK._paid||0);
+  const rem=Math.max(0,price-paid);
+  const pct=price>0?Math.round((paid/price)*100):0;
+
+  document.getElementById('pay-task-info').innerHTML=`
+    <div style="background:var(--sf2);border-radius:12px;padding:14px;border:1px solid var(--bd)">
+      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:10px">${esc(PAY_TASK.title)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div><div style="font-size:9px;color:var(--mu);margin-bottom:3px;text-transform:uppercase;letter-spacing:1px">Total Cost</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--ac)">${lkr(price)}</div></div>
+        <div><div style="font-size:9px;color:var(--mu);margin-bottom:3px;text-transform:uppercase;letter-spacing:1px">Paid So Far</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--ac2)">${lkr(paid)} <span style="font-size:10px;opacity:.6">(${pct}%)</span></div></div>
+        <div><div style="font-size:9px;color:var(--mu);margin-bottom:3px;text-transform:uppercase;letter-spacing:1px">Remaining</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--wn)">${lkr(rem)}</div></div>
+      </div>
+    </div>`;
+
+  // Pre-fill full remaining amount
+  document.getElementById('pamt').value=commaFmt(rem.toFixed(2));
+  document.getElementById('pnote').value='';
+  document.getElementById('pdt').value=localDT();
+  document.getElementById('pay-hint').style.display='none';
+  openMo('mo-pay');
+  updatePayHint();
+}
+
+function updatePayHint(){
+  if(!PAY_TASK)return;
+  const entering=parseRaw(document.getElementById('pamt'));
+  const price=parseFloat(PAY_TASK.price||0);
+  const paid=parseFloat(PAY_TASK._paid||0);
+  const rem=Math.max(0,price-paid);
+  const hint=document.getElementById('pay-hint');
+  if(entering<=0){hint.style.display='none';return;}
+  hint.style.display='block';
+  if(entering>=rem){
+    hint.innerHTML='✅ This will <strong>fully settle</strong> this task';
+    hint.style.background='rgba(184,240,64,.08)';hint.style.border='1px solid rgba(184,240,64,.2)';hint.style.color='var(--ac)';
+  }else{
+    const newPct=Math.round(((paid+entering)/price)*100);
+    const stillLeft=Math.max(0,rem-entering);
+    hint.innerHTML=`After paying: <strong style="font-family:'JetBrains Mono',monospace">${newPct}%</strong> paid · Still pending: <strong style="font-family:'JetBrains Mono',monospace">LKR ${lkr(stillLeft)}</strong>`;
+    hint.style.background='var(--wnd)';hint.style.border='1px solid rgba(255,179,64,.2)';hint.style.color='var(--wn)';
+  }
+}
+
+async function submitPayment(){
+  if(!PAY_TASK){showT('No task selected',true);return;}
+  const amt=parseRaw(document.getElementById('pamt'));
+  const meth=document.getElementById('pmeth').value;
+  const note=document.getElementById('pnote').value.trim();
+  const dtv=document.getElementById('pdt').value;
+  if(!amt||amt<=0){showT('Please enter a valid amount',true);return;}
+
+  const pd=dtv?new Date(dtv).toISOString():new Date().toISOString();
+  const price=parseFloat(PAY_TASK.price||0);
+  const prevPaid=parseFloat(PAY_TASK._paid||0);
+  const newPaid=Math.min(price,prevPaid+amt);
+  const isFullyPaid=newPaid>=price;
+
+  // Record payment in payments table
+  const{data:pdata,error:pe}=await sb.from('payments').insert({
+    amount:amt,method:meth,note:note||null,payment_date:pd,
+    recorded_by:CU.id,recorded_by_name:CU.name
+  }).select().single();
+  if(pe){showT('Error: '+pe.message,true);return;}
+
+  // Record in task_payments junction table (this is the source of truth for paid amount)
+  const{error:tpe}=await sb.from('task_payments').insert({
+    task_id:PAY_TASK.id,payment_id:pdata.id,amount_applied:amt
+  });
+  if(tpe){showT('Error linking payment: '+tpe.message,true);return;}
+
+  // Update task status only (no amount_paid column in tasks)
+  const upd={status:isFullyPaid?'paid':'partial'};
+  if(isFullyPaid){upd.paid_date=pd;upd.payment_id=pdata.id;}
+  await sb.from('tasks').update(upd).eq('id',PAY_TASK.id);
+
+  closeMo('mo-pay');
+  showT(isFullyPaid?'✅ Task fully paid!':'💛 Partial payment saved!');
+  PAY_TASK=null;
+  // Reload dashboard with fresh data so cards update immediately
+  navigate('dashboard',document.querySelector('.ni'));
+}
+
+// ── FREE PAYMENT (no task) ─────────────────────────────
+function openFreePayModal(){
+  document.getElementById('fp-amt').value='';
+  document.getElementById('fp-note').value='';
+  document.getElementById('fp-dt').value=localDT();
+  openMo('mo-freepay');
+}
+async function submitFreePayment(){
+  const amt=parseRaw(document.getElementById('fp-amt'));
+  const meth=document.getElementById('fp-meth').value;
+  const note=document.getElementById('fp-note').value.trim();
+  const dtv=document.getElementById('fp-dt').value;
+  if(!amt||amt<=0){showT('Please enter a valid amount',true);return;}
+  const pd=dtv?new Date(dtv).toISOString():new Date().toISOString();
+  const{error}=await sb.from('payments').insert({
+    amount:amt,method:meth,
+    note:(note?note+' — ':'')+' [No task — direct payment]',
+    payment_date:pd,
+    recorded_by:CU.id,recorded_by_name:CU.name
+  });
+  if(error){showT('Error: '+error.message,true);return;}
+  closeMo('mo-freepay');
+  showT('✅ Payment recorded!');
+  navigate('dashboard',document.querySelector('.ni'));
+}
+
+// ── PAYMENTS PAGE ──────────────────────────────────────
+async function loadPays(){
+  document.getElementById('plist').innerHTML='<div class="spn"></div>';
+  const{data}=await sb.from('payments').select('*');
+  AP=sortDT(data||[],'payment_date');
+  if(!AP.length){document.getElementById('plist').innerHTML='<div class="empty"><div class="em">💳</div><p>No payments yet</p></div>';return;}
+  document.getElementById('plist').innerHTML=buildGroups(AP,'payment_date',rPay);
+}
+function rPay(p){
+  const ic={Cash:'💵','Bank Transfer':'🏦',Other:'🔄'};
+  return`<div class="pi"><div class="piic">${ic[p.method]||'💰'}</div><div class="pii"><div class="piam">LKR ${lkr(p.amount)}</div><div class="pisb">🕐 ${fdt(p.payment_date||p.created_at)}${p.note?' · '+esc(p.note):''}</div></div><div class="pibg">${esc(p.method)}</div></div>`;
+}
+
+// ── HISTORY ────────────────────────────────────────────
+async function loadHist(){
+  document.getElementById('hlist').innerHTML='<div class="spn"></div>';
+  const[tr,pr,tpr]=await Promise.all([
+    sb.from('tasks').select('*'),
+    sb.from('payments').select('*'),
+    sb.from('task_payments').select('*')
+  ]);
+  const tpRows=tpr.data||[];
+  AP=pr.data||[];
+  AT=(tr.data||[]).map(t=>{
+    const paid=tpRows.filter(r=>r.task_id===t.id).reduce((s,r)=>s+parseFloat(r.amount_applied||0),0);
+    return{...t,_paid:paid};
+  });
+  renderHist();
+}
+function filterHist(f,el){HFI=f;document.querySelectorAll('#pg-history .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderHist();}
+function renderHist(){
+  let items=[];
+  if(HFI!=='payments')AT.forEach(t=>items.push({type:'task',dt:new Date(t.task_date||t.created_at),d:t}));
+  if(HFI!=='tasks')AP.forEach(p=>items.push({type:'pay',dt:new Date(p.payment_date||p.created_at),d:p}));
+  items.sort((a,b)=>b.dt-a.dt);
+  const el=document.getElementById('hlist');
+  if(!items.length){el.innerHTML='<div class="empty"><div class="em">🕐</div><p>No history yet</p></div>';return;}
+  const grps={};
+  items.forEach(i=>{const l=dlabel(i.dt);if(!grps[l])grps[l]=[];grps[l].push(i);});
+  let h='';
+  for(const[l,its] of Object.entries(grps)){
+    h+=`<div class="dghd">📅 ${l}</div>`;
+    its.forEach(i=>{h+=i.type==='task'?rTask(i.d,false):rPay(i.d);});
+  }
+  el.innerHTML=h;
+}
+
+// ── ADD TASK ───────────────────────────────────────────
+async function submitTask(){
+  const title=document.getElementById('ttitle').value.trim();
+  const desc=document.getElementById('tdesc').value.trim();
+  const price=parseRaw(document.getElementById('tprice'));
+  const dtv=document.getElementById('tdt').value;
+  if(!title){showT('Please enter a title',true);return;}
+  if(!price||price<=0){showT('Please enter a valid price',true);return;}
+  const{error}=await sb.from('tasks').insert({
+    title,description:desc||null,price,
+    created_by:CU.id,created_by_name:CU.name,
+    status:'unpaid',
+    task_date:dtv?new Date(dtv).toISOString():new Date().toISOString()
+  });
+  if(error){showT('Error: '+error.message,true);return;}
+  document.getElementById('ttitle').value='';
+  document.getElementById('tdesc').value='';
+  document.getElementById('tprice').value='';
+  document.getElementById('tdt').value=localDT();
+  showT('✅ Task added!');
+  navigate('tasks',document.querySelectorAll('.ni')[1]);
+}
+
+// ── EDIT DATE ──────────────────────────────────────────
+function openED(id){
+  PET=AT.find(t=>t.id===id);if(!PET)return;
+  document.getElementById('edprev').innerHTML=`<div style="background:var(--sf2);border-radius:10px;padding:12px;border:1px solid var(--bd)"><div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px">${esc(PET.title)}</div><div style="font-size:10px;color:var(--mu)">Current: ${fdt(PET.task_date||PET.created_at)}</div></div>`;
+  document.getElementById('eddt').value=localDT(PET.task_date||PET.created_at);
+  openMo('mo-ed');
+}
+async function confirmEditDate(){
+  if(!PET)return;
+  const v=document.getElementById('eddt').value;
+  if(!v){showT('Select a date & time',true);return;}
+  const{error}=await sb.from('tasks').update({task_date:new Date(v).toISOString()}).eq('id',PET.id);
+  if(error){showT('Error: '+error.message,true);return;}
+  closeMo('mo-ed');showT('✏️ Date updated!');PET=null;
+  navigate('tasks',document.querySelectorAll('.ni')[1]);
+}
+
+// ── MODALS ─────────────────────────────────────────────
+function openMo(id){document.getElementById(id).classList.add('open');}
+function closeMo(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+
+// ── TOAST ──────────────────────────────────────────────
+function showT(msg,err){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.background=err?'var(--dg)':'var(--ac)';t.style.color=err?'#fff':'#09090e';
+  t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── UTILS ──────────────────────────────────────────────
+function fdt(d){if(!d)return'';return new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+function dlabel(d){
+  const now=new Date(),dd=new Date(d);
+  const diff=Math.floor((now-dd)/86400000);
+  if(diff===0)return'Today';if(diff===1)return'Yesterday';
+  return dd.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+}
+function localDT(d){const dt=d?new Date(d):new Date();dt.setMinutes(dt.getMinutes()-dt.getTimezoneOffset());return dt.toISOString().slice(0,16);}
+function sortDT(arr,f){return[...arr].sort((a,b)=>new Date(b[f]||b.created_at)-new Date(a[f]||a.created_at));}
+function buildGroups(arr,f,fn){
+  const grps={};
+  arr.forEach(i=>{const l=dlabel(new Date(i[f]||i.created_at));if(!grps[l])grps[l]=[];grps[l].push(i);});
+  let h='';
+  for(const[l,its] of Object.entries(grps)){h+=`<div class="dghd">📅 ${l}</div>`;its.forEach(i=>{h+=fn(i);});}
+  return h;
+}
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── INIT ───────────────────────────────────────────────
+(()=>{
+  checkPWA();
+  const s=localStorage.getItem('bsu');
+  if(s){try{CU=JSON.parse(s);showApp();}catch(e){localStorage.removeItem('bsu');}}
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('lun').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin();});
+})();
+</script>
+</body>
+</html>
