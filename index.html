@@ -170,6 +170,42 @@ input[type=datetime-local]{color-scheme:dark}
 .chip.partial{background:var(--wnd);color:var(--wn)}
 .chip.by{background:var(--sf2);color:var(--mu)}
 .chip.loan-chip{background:var(--wnd);color:var(--wn);font-size:9px}
+/* STAGE CHIPS */
+.chip.stage-talks{background:rgba(56,189,248,.12);color:var(--in);border:1px solid rgba(56,189,248,.2)}
+.chip.stage-dev{background:rgba(124,92,246,.12);color:var(--ac2);border:1px solid rgba(124,92,246,.2)}
+.chip.stage-final{background:rgba(255,179,64,.12);color:var(--wn);border:1px solid rgba(255,179,64,.2)}
+.chip.stage-done{background:rgba(184,240,64,.1);color:var(--ac);border:1px solid rgba(184,240,64,.2)}
+.chip.no-share{background:rgba(255,61,96,.1);color:var(--dg);border:1px solid rgba(255,61,96,.2)}
+
+/* STAGE PICKER */
+.stage-picker{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px}
+.sp-btn{padding:9px 6px;border-radius:10px;border:1.5px solid var(--bd);background:var(--sf2);cursor:pointer;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.4px;text-align:center;transition:all .2s;color:var(--mu);line-height:1.4}
+.sp-btn.active-talks{border-color:var(--in);background:rgba(56,189,248,.1);color:var(--in)}
+.sp-btn.active-dev{border-color:var(--ac2);background:rgba(124,92,246,.1);color:var(--ac2)}
+.sp-btn.active-final{border-color:var(--wn);background:rgba(255,179,64,.1);color:var(--wn)}
+.sp-btn.active-done{border-color:var(--ac);background:rgba(184,240,64,.1);color:var(--ac)}
+
+/* TOGGLE SWITCH */
+.tgl-row{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;background:var(--sf2);border:1px solid var(--bd);border-radius:12px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+.tgl-row:hover{border-color:var(--mu)}
+.tgl-info{flex:1;min-width:0}
+.tgl-label{font-size:12px;font-weight:600;color:var(--tx);font-family:'DM Sans',sans-serif}
+.tgl-sub{font-size:10px;color:var(--mu);margin-top:2px}
+.tgl{width:38px;height:22px;background:var(--bd);border-radius:11px;position:relative;flex-shrink:0;transition:background .2s;cursor:pointer}
+.tgl.on{background:var(--ac)}
+.tgl::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tgl.on::after{transform:translateX(16px)}
+
+/* CUSTOM SPLIT INPUTS */
+.custom-split-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:8px}
+.cs-mid{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--mu);text-align:center}
+.pct-input{background:var(--inp-bg);border:1px solid var(--bd);border-radius:10px;color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;padding:10px 12px;outline:none;transition:border-color .2s;text-align:center;-webkit-appearance:none}
+.pct-input:focus{border-color:var(--ac)}
+.pct-result-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.pct-result{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
+.pct-result-label{font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.pct-result-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--tx)}
+
 .tid{font-size:10px;color:var(--mu);margin-top:5px}
 .dtxt{font-size:12px;color:var(--mu);margin-bottom:6px;line-height:1.6}
 
@@ -402,6 +438,10 @@ input[type=datetime-local]{color-scheme:dark}
             <div class="sv blu">LKR <span id="b-taskval">0</span></div>
           </div>
         </div>
+        <div class="scard" style="margin-bottom:12px">
+          <div class="sl">Your Earnings from Tasks (Boss Share)</div>
+          <div class="sv grn">LKR <span id="b-earnings">0</span></div>
+        </div>
         <button class="btn btn-s" style="margin-bottom:14px;border-color:var(--ac2);color:var(--ac2)" onclick="openFreePayModal()">💰 Send Money Without Task (Loan) →</button>
       </div>
 
@@ -467,30 +507,70 @@ input[type=datetime-local]{color-scheme:dark}
         <div class="fg"><label>Task Title *</label><input type="text" id="ttitle" placeholder="e.g. Landing page build" style="font-family:'DM Sans',sans-serif;font-size:14px"></div>
         <div class="fg"><label>Description</label><textarea id="tdesc" placeholder="Details about this task…"></textarea></div>
 
+        <!-- STAGE PICKER -->
+        <div class="fg" style="margin-bottom:14px">
+          <label>Project Stage</label>
+          <div class="stage-picker">
+            <button type="button" class="sp-btn" id="add-stage-talks" onclick="setStage('add','in_talks')">🤝 In Talks<br><span style="font-size:8px;font-weight:400;opacity:.7">Negotiation / Scoping</span></button>
+            <button type="button" class="sp-btn" id="add-stage-dev" onclick="setStage('add','in_development')">⚙️ In Development<br><span style="font-size:8px;font-weight:400;opacity:.7">Actively building</span></button>
+            <button type="button" class="sp-btn" id="add-stage-final" onclick="setStage('add','final_stages')">🔍 Final Stages<br><span style="font-size:8px;font-weight:400;opacity:.7">Review &amp; delivery</span></button>
+            <button type="button" class="sp-btn" id="add-stage-done" onclick="setStage('add','finished')">✅ Finished<br><span style="font-size:8px;font-weight:400;opacity:.7">Delivered &amp; closed</span></button>
+          </div>
+        </div>
+
+        <!-- NO BOSS SHARE TOGGLE -->
+        <div class="tgl-row" onclick="toggleNoBossShare('add')" style="margin-bottom:14px">
+          <div class="tgl-info">
+            <div class="tgl-label">🚫 No Boss Share</div>
+            <div class="tgl-sub">Turn on if boss gets nothing from this task</div>
+          </div>
+          <div class="tgl" id="add-noboss-tgl"></div>
+        </div>
+
         <!-- SPLIT CALCULATOR -->
-        <div style="margin-bottom:14px">
-          <div style="font-size:10px;color:var(--mu);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:7px;font-weight:700">PRICING — 60% YOU / 40% BOSS</div>
+        <div id="add-split-section" style="margin-bottom:14px">
+          <div style="font-size:10px;color:var(--mu);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:9px;font-weight:700">PRICING &amp; REVENUE SPLIT</div>
+
+          <!-- Default split toggle -->
+          <div class="tgl-row" onclick="toggleCustomSplit('add')" style="margin-bottom:10px">
+            <div class="tgl-info">
+              <div class="tgl-label">Default 60/40 Split</div>
+              <div class="tgl-sub" id="add-split-sub">You 60% · Boss 40% — tap to customise</div>
+            </div>
+            <div class="tgl on" id="add-default-tgl"></div>
+          </div>
+
+          <!-- Custom % inputs (hidden when default is on) -->
+          <div id="add-custom-pct" style="display:none;margin-bottom:10px">
+            <div class="custom-split-row">
+              <div>
+                <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Your % (Dev)</div>
+                <input type="number" class="pct-input" id="add-dev-pct" value="60" min="1" max="99" oninput="recalcSplit('add')">
+              </div>
+              <div class="cs-mid">+</div>
+              <div>
+                <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Boss %</div>
+                <input type="number" class="pct-input" id="add-boss-pct" value="40" min="1" max="99" oninput="recalcSplit('add')">
+              </div>
+            </div>
+          </div>
+
+          <!-- Price fields -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
             <div>
               <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Original Project Price</div>
-              <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="t-orig-price" placeholder="0" inputmode="decimal" oninput="fmtInput(this);calcFromOrig()" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px"></div>
+              <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="t-orig-price" placeholder="0" inputmode="decimal" oninput="fmtInput(this);calcFromOrig('add')" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px"></div>
             </div>
             <div>
-              <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Your Price (60%) *</div>
-              <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="tprice" placeholder="0" inputmode="decimal" oninput="fmtInput(this);calcFromDev()" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid var(--ac)"></div>
+              <div style="font-size:9px;color:var(--ac);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;font-weight:700">Your Price * <span id="add-dev-pct-label" style="color:var(--ac)">(60%)</span></div>
+              <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="tprice" placeholder="0" inputmode="decimal" oninput="fmtInput(this);calcFromDev('add')" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid var(--ac)"></div>
             </div>
           </div>
           <div id="split-preview" class="split-box" style="display:none">
             <div class="sb-title">💡 SPLIT BREAKDOWN</div>
             <div class="split-grid">
-              <div class="split-item">
-                <div class="split-label">You Get (60%)</div>
-                <div class="split-val grn" id="split-dev">LKR 0</div>
-              </div>
-              <div class="split-item">
-                <div class="split-label">Boss Gets (40%)</div>
-                <div class="split-val pur" id="split-boss">LKR 0</div>
-              </div>
+              <div class="split-item"><div class="split-label">You Get <span id="split-dev-pct">(60%)</span></div><div class="split-val" style="color:var(--ac)" id="split-dev">LKR 0</div></div>
+              <div class="split-item"><div class="split-label">Boss Gets <span id="split-boss-pct">(40%)</span></div><div class="split-val" style="color:var(--ac2)" id="split-boss">LKR 0</div></div>
             </div>
           </div>
         </div>
@@ -569,24 +649,67 @@ input[type=datetime-local]{color-scheme:dark}
     <div class="fg"><label>Task Title *</label><input type="text" id="et-title" placeholder="Task title" style="font-family:'DM Sans',sans-serif;font-size:14px"></div>
     <div class="fg"><label>Description</label><textarea id="et-desc" placeholder="Description…"></textarea></div>
 
-    <!-- Split calc in edit modal -->
-    <div style="margin-bottom:14px">
-      <div style="font-size:10px;color:var(--mu);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:7px;font-weight:700">PRICING — 60% YOU / 40% BOSS</div>
+    <!-- STAGE PICKER -->
+    <div class="fg" style="margin-bottom:14px">
+      <label>Project Stage</label>
+      <div class="stage-picker">
+        <button type="button" class="sp-btn" id="et-stage-talks" onclick="setStage('et','in_talks')">🤝 In Talks<br><span style="font-size:8px;font-weight:400;opacity:.7">Negotiation / Scoping</span></button>
+        <button type="button" class="sp-btn" id="et-stage-dev" onclick="setStage('et','in_development')">⚙️ In Development<br><span style="font-size:8px;font-weight:400;opacity:.7">Actively building</span></button>
+        <button type="button" class="sp-btn" id="et-stage-final" onclick="setStage('et','final_stages')">🔍 Final Stages<br><span style="font-size:8px;font-weight:400;opacity:.7">Review &amp; delivery</span></button>
+        <button type="button" class="sp-btn" id="et-stage-done" onclick="setStage('et','finished')">✅ Finished<br><span style="font-size:8px;font-weight:400;opacity:.7">Delivered &amp; closed</span></button>
+      </div>
+    </div>
+
+    <!-- NO BOSS SHARE TOGGLE -->
+    <div class="tgl-row" onclick="toggleNoBossShare('et')" style="margin-bottom:14px">
+      <div class="tgl-info">
+        <div class="tgl-label">🚫 No Boss Share</div>
+        <div class="tgl-sub">Turn on if boss gets nothing from this task</div>
+      </div>
+      <div class="tgl" id="et-noboss-tgl"></div>
+    </div>
+
+    <!-- SPLIT SECTION -->
+    <div id="et-split-section" style="margin-bottom:14px">
+      <div style="font-size:10px;color:var(--mu);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:9px;font-weight:700">PRICING &amp; REVENUE SPLIT</div>
+
+      <div class="tgl-row" onclick="toggleCustomSplit('et')" style="margin-bottom:10px">
+        <div class="tgl-info">
+          <div class="tgl-label">Default 60/40 Split</div>
+          <div class="tgl-sub" id="et-split-sub">You 60% · Boss 40%</div>
+        </div>
+        <div class="tgl on" id="et-default-tgl"></div>
+      </div>
+
+      <div id="et-custom-pct" style="display:none;margin-bottom:10px">
+        <div class="custom-split-row">
+          <div>
+            <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Your % (Dev)</div>
+            <input type="number" class="pct-input" id="et-dev-pct" value="60" min="1" max="99" oninput="recalcSplit('et')">
+          </div>
+          <div class="cs-mid">+</div>
+          <div>
+            <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Boss %</div>
+            <input type="number" class="pct-input" id="et-boss-pct" value="40" min="1" max="99" oninput="recalcSplit('et')">
+          </div>
+        </div>
+      </div>
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
         <div>
           <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Original Project Price</div>
-          <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="et-orig" placeholder="0" inputmode="decimal" oninput="fmtInput(this);editCalcFromOrig()" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px"></div>
+          <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="et-orig" placeholder="0" inputmode="decimal" oninput="fmtInput(this);calcFromOrig('et')" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px"></div>
         </div>
         <div>
-          <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Your Price (60%) *</div>
-          <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="et-price" placeholder="0" inputmode="decimal" oninput="fmtInput(this);editCalcFromDev()" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid var(--ac)"></div>
+          <div style="font-size:9px;color:var(--ac);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;font-weight:700">Your Price * <span id="et-dev-pct-label" style="color:var(--ac)">(60%)</span></div>
+          <div class="pw"><span class="ps" style="font-size:10px">LKR</span><input type="text" id="et-price" placeholder="0" inputmode="decimal" oninput="fmtInput(this);calcFromDev('et')" style="padding-left:50px;font-family:'JetBrains Mono',monospace;font-size:13px;border:1px solid var(--ac)"></div>
         </div>
       </div>
       <div id="et-split-preview" class="split-box" style="display:none">
         <div class="sb-title">💡 SPLIT BREAKDOWN</div>
         <div class="split-grid">
-          <div class="split-item"><div class="split-label">You Get (60%)</div><div class="split-val" style="color:var(--ac)" id="et-split-dev">LKR 0</div></div>
-          <div class="split-item"><div class="split-label">Boss Gets (40%)</div><div class="split-val" style="color:var(--ac2)" id="et-split-boss">LKR 0</div></div>
+          <div class="split-item"><div class="split-label">You Get <span id="et-split-dev-pct">(60%)</span></div><div class="split-val" style="color:var(--ac)" id="et-split-dev">LKR 0</div></div>
+          <div class="split-item"><div class="split-label">Boss Gets <span id="et-split-boss-pct">(40%)</span></div><div class="split-val" style="color:var(--ac2)" id="et-split-boss">LKR 0</div></div>
         </div>
       </div>
     </div>
@@ -670,6 +793,19 @@ const SB_URL='https://nxaptfdqcyvnkaiqftis.supabase.co';
 const SB_KEY='sb_publishable_EkcSLNhdM3vSJUwE05euvQ_Hi-ah-lm';
 const sb=supabase.createClient(SB_URL,SB_KEY);
 
+/*
+=== SUPABASE SQL — run these if columns don't exist yet ===
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS stage TEXT DEFAULT 'in_talks';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS no_boss_share BOOLEAN DEFAULT FALSE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS dev_pct NUMERIC(5,2) DEFAULT 60;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS boss_pct NUMERIC(5,2) DEFAULT 40;
+UPDATE tasks SET stage='in_talks' WHERE stage IS NULL;
+UPDATE tasks SET no_boss_share=FALSE WHERE no_boss_share IS NULL;
+UPDATE tasks SET dev_pct=60 WHERE dev_pct IS NULL;
+UPDATE tasks SET boss_pct=40 WHERE boss_pct IS NULL;
+==========================================================
+*/
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 let CU=null,AT=[],AP=[],TP_ROWS=[],FI='all',PFI='all',HFI='all';
@@ -719,47 +855,122 @@ function fmtInput(el){
   try{el.setSelectionRange(pos+diff,pos+diff);}catch(e){}
 }
 
-// ── SPLIT CALC (Add Task) ─────────────────────────────
-function calcFromOrig(){
-  const orig=parseRaw(document.getElementById('t-orig-price'));
-  if(!orig){document.getElementById('tprice').value='';hideSplitPreview();return;}
-  const dev=orig*0.6;
-  document.getElementById('tprice').value=commaFmt(dev.toFixed(2));
-  showSplitPreview(dev,orig*0.4,'split-dev','split-boss','split-preview');
-}
-function calcFromDev(){
-  const dev=parseRaw(document.getElementById('tprice'));
-  if(!dev){document.getElementById('t-orig-price').value='';hideSplitPreview();return;}
-  const orig=dev/0.6;
-  document.getElementById('t-orig-price').value=commaFmt(orig.toFixed(2));
-  showSplitPreview(dev,orig*0.4,'split-dev','split-boss','split-preview');
-}
-function hideSplitPreview(){document.getElementById('split-preview').style.display='none';}
-function showSplitPreview(dev,boss,devId,bossId,boxId){
-  document.getElementById(boxId).style.display='block';
-  document.getElementById(devId).textContent='LKR '+lkr(dev);
-  document.getElementById(bossId).textContent='LKR '+lkr(boss);
+// ── STAGE HELPERS ─────────────────────────────────────
+const STAGE_MAP={
+  in_talks:    {cls:'stage-talks', icon:'🤝', label:'IN TALKS',      btn:'talks'},
+  in_development:{cls:'stage-dev',  icon:'⚙️', label:'IN DEVELOPMENT',btn:'dev'},
+  final_stages:{cls:'stage-final', icon:'🔍', label:'FINAL STAGES',  btn:'final'},
+  finished:    {cls:'stage-done',  icon:'✅', label:'FINISHED',      btn:'done'},
+};
+let ADD_STAGE='in_talks', ET_STAGE='in_talks';
+let ADD_NO_BOSS=false, ET_NO_BOSS=false;
+let ADD_DEFAULT_SPLIT=true, ET_DEFAULT_SPLIT=true;
+
+function setStage(ctx,val){
+  if(ctx==='add')ADD_STAGE=val; else ET_STAGE=val;
+  ['talks','dev','final','done'].forEach(k=>{
+    const btn=document.getElementById(`${ctx}-stage-${k}`);
+    if(btn){btn.className='sp-btn';if(STAGE_MAP[val]?.btn===k)btn.classList.add('active-'+k);}
+  });
 }
 
-// ── SPLIT CALC (Edit Task) ────────────────────────────
-function editCalcFromOrig(){
-  const orig=parseRaw(document.getElementById('et-orig'));
-  if(!orig){document.getElementById('et-price').value='';document.getElementById('et-split-preview').style.display='none';return;}
-  const dev=orig*0.6;
-  document.getElementById('et-price').value=commaFmt(dev.toFixed(2));
-  document.getElementById('et-split-preview').style.display='block';
-  document.getElementById('et-split-dev').textContent='LKR '+lkr(dev);
-  document.getElementById('et-split-boss').textContent='LKR '+lkr(orig*0.4);
+function toggleNoBossShare(ctx){
+  if(ctx==='add'){ADD_NO_BOSS=!ADD_NO_BOSS;updateNoBossUI('add',ADD_NO_BOSS);}
+  else{ET_NO_BOSS=!ET_NO_BOSS;updateNoBossUI('et',ET_NO_BOSS);}
 }
-function editCalcFromDev(){
-  const dev=parseRaw(document.getElementById('et-price'));
-  if(!dev){document.getElementById('et-orig').value='';document.getElementById('et-split-preview').style.display='none';return;}
-  const orig=dev/0.6;
-  document.getElementById('et-orig').value=commaFmt(orig.toFixed(2));
-  document.getElementById('et-split-preview').style.display='block';
-  document.getElementById('et-split-dev').textContent='LKR '+lkr(dev);
-  document.getElementById('et-split-boss').textContent='LKR '+lkr(orig*0.4);
+function updateNoBossUI(ctx,on){
+  const tgl=document.getElementById(`${ctx}-noboss-tgl`);
+  if(tgl){if(on)tgl.classList.add('on');else tgl.classList.remove('on');}
+  const sec=document.getElementById(`${ctx}-split-section`);
+  if(sec)sec.style.display=on?'none':'block';
 }
+
+function toggleCustomSplit(ctx){
+  if(ctx==='add'){ADD_DEFAULT_SPLIT=!ADD_DEFAULT_SPLIT;renderSplitToggle('add',ADD_DEFAULT_SPLIT);}
+  else{ET_DEFAULT_SPLIT=!ET_DEFAULT_SPLIT;renderSplitToggle('et',ET_DEFAULT_SPLIT);}
+}
+function renderSplitToggle(ctx,isDefault){
+  const tgl=document.getElementById(`${ctx}-default-tgl`);
+  const cpct=document.getElementById(`${ctx}-custom-pct`);
+  if(tgl){if(isDefault)tgl.classList.add('on');else tgl.classList.remove('on');}
+  if(cpct)cpct.style.display=isDefault?'none':'block';
+  if(isDefault){
+    const dp=document.getElementById(`${ctx}-dev-pct`);
+    const bp=document.getElementById(`${ctx}-boss-pct`);
+    if(dp)dp.value=60;if(bp)bp.value=40;
+  }
+  recalcSplit(ctx);
+}
+function getCtxPcts(ctx){
+  const dp=parseFloat(document.getElementById(`${ctx}-dev-pct`)?.value)||60;
+  const bp=parseFloat(document.getElementById(`${ctx}-boss-pct`)?.value)||40;
+  return{dp,bp};
+}
+function recalcSplit(ctx){
+  const{dp,bp}=getCtxPcts(ctx);
+  const lbl=document.getElementById(`${ctx}-dev-pct-label`);
+  if(lbl)lbl.textContent=`(${dp}%)`;
+  // update sub label
+  const sub=document.getElementById(`${ctx}-split-sub`);
+  if(sub)sub.textContent=`You ${dp}% · Boss ${bp}%`;
+  // Recalculate amounts if a price is entered
+  const isAdd=ctx==='add';
+  const devEl=document.getElementById(isAdd?'tprice':'et-price');
+  const origEl=document.getElementById(isAdd?'t-orig-price':'et-orig');
+  const dev=parseRaw(devEl);
+  if(dev>0){
+    // recalc original from dev with new pcts
+    const total=dev/dp*100;
+    if(origEl)origEl.value=commaFmt(total.toFixed(2));
+    showSplitPreview(ctx,dev,total*bp/100,dp,bp);
+  }
+}
+
+// ── SPLIT CALC ────────────────────────────────────────
+function calcFromOrig(ctx){
+  const isAdd=ctx==='add';
+  const origEl=document.getElementById(isAdd?'t-orig-price':'et-orig');
+  const devEl=document.getElementById(isAdd?'tprice':'et-price');
+  const orig=parseRaw(origEl);
+  if(!orig){devEl.value='';hideSplitPrev(ctx);return;}
+  const{dp,bp}=getCtxPcts(ctx);
+  const dev=orig*dp/100;
+  devEl.value=commaFmt(dev.toFixed(2));
+  showSplitPreview(ctx,dev,orig*bp/100,dp,bp);
+}
+function calcFromDev(ctx){
+  const isAdd=ctx==='add';
+  const origEl=document.getElementById(isAdd?'t-orig-price':'et-orig');
+  const devEl=document.getElementById(isAdd?'tprice':'et-price');
+  const dev=parseRaw(devEl);
+  if(!dev){if(origEl)origEl.value='';hideSplitPrev(ctx);return;}
+  const{dp,bp}=getCtxPcts(ctx);
+  const total=dev/dp*100;
+  if(origEl)origEl.value=commaFmt(total.toFixed(2));
+  showSplitPreview(ctx,dev,total*bp/100,dp,bp);
+}
+function hideSplitPrev(ctx){
+  const b=document.getElementById(ctx==='add'?'split-preview':'et-split-preview');
+  if(b)b.style.display='none';
+}
+function showSplitPreview(ctx,dev,boss,dp,bp){
+  const isAdd=ctx==='add';
+  const box=document.getElementById(isAdd?'split-preview':'et-split-preview');
+  if(!box)return;
+  box.style.display='block';
+  document.getElementById(isAdd?'split-dev':'et-split-dev').textContent='LKR '+lkr(dev);
+  document.getElementById(isAdd?'split-boss':'et-split-boss').textContent='LKR '+lkr(boss);
+  const dpEl=document.getElementById(isAdd?'split-dev-pct':'et-split-dev-pct');
+  const bpEl=document.getElementById(isAdd?'split-boss-pct':'et-split-boss-pct');
+  if(dpEl)dpEl.textContent=`(${dp}%)`;
+  if(bpEl)bpEl.textContent=`(${bp}%)`;
+}
+
+// Legacy stubs (no longer called directly but kept for safety)
+function calcFromOrig_old(){}
+function calcFromDev_old(){}
+function editCalcFromOrig(){}
+function editCalcFromDev(){}
 
 // ── INSTALL GATE ─────────────────────────────────────
 let deferredPrompt=null;
@@ -804,6 +1015,11 @@ function showApp(){
   document.getElementById('udisp').textContent=CU.name+' · '+CU.role;
   if(CU.role==='boss')document.getElementById('rdot').classList.add('boss');
   document.getElementById('tdt').value=localDT();
+  // Init add task form state
+  ADD_STAGE='in_talks';ADD_NO_BOSS=false;ADD_DEFAULT_SPLIT=true;
+  setStage('add','in_talks');
+  updateNoBossUI('add',false);
+  renderSplitToggle('add',true);
   navigate('dashboard',document.querySelector('.ni'));
 }
 
@@ -850,6 +1066,16 @@ async function loadDash(){
 
   const notFullyPaid=AT.filter(t=>taskStatus(t)!=='paid');
 
+  // Boss earnings = sum of boss share on tasks where no_boss_share is false
+  // boss share per task = price * boss_pct / dev_pct
+  const bossEarnings=AT.reduce((s,t)=>{
+    if(t.no_boss_share)return s;
+    const devPct=parseFloat(t.dev_pct||60);
+    const bossPct=parseFloat(t.boss_pct||40);
+    const bossShare=parseFloat(t.price||0)*bossPct/devPct;
+    return s+bossShare;
+  },0);
+
   if(CU.role==='boss'){
     document.getElementById('boss-dash').style.display='block';
     document.getElementById('dev-dash').style.display='none';
@@ -858,6 +1084,7 @@ async function loadDash(){
     document.getElementById('b-loans').textContent=lkr(totalLoans);
     document.getElementById('b-unpaidct').textContent=notFullyPaid.length+' tasks';
     document.getElementById('b-taskval').textContent=lkr(totalTaskValue);
+    document.getElementById('b-earnings').textContent=lkr(bossEarnings);
   }else{
     document.getElementById('dev-dash').style.display='block';
     document.getElementById('boss-dash').style.display='none';
@@ -909,12 +1136,26 @@ function rTask(t,showActions){
   const remaining=Math.max(0,price-amtPaid);
   const pct=price>0?Math.round((amtPaid/price)*100):0;
   const isBoss=CU&&CU.role==='boss';
-  const isDev=CU&&CU.role==='developer';
 
-  let chipHtml='';
-  if(status==='paid')chipHtml='<span class="chip paid">✓ PAID</span>';
-  else if(status==='partial')chipHtml=`<span class="chip partial">⬤ ${pct}% PAID</span>`;
-  else chipHtml=`<span class="chip unpaid">✗ 0% — UNPAID</span>`;
+  // Stage chip
+  const stageKey=t.stage||'in_talks';
+  const stageInfo=STAGE_MAP[stageKey]||STAGE_MAP['in_talks'];
+  const stageChip=`<span class="chip ${stageInfo.cls}">${stageInfo.icon} ${stageInfo.label}</span>`;
+
+  // Payment status chip
+  let payChip='';
+  if(status==='paid')payChip='<span class="chip paid">✓ PAID</span>';
+  else if(status==='partial')payChip=`<span class="chip partial">⬤ ${pct}% PAID</span>`;
+  else payChip=`<span class="chip unpaid">✗ 0% — UNPAID</span>`;
+
+  // No boss share badge
+  const noBossChip=t.no_boss_share?'<span class="chip no-share">🚫 NO BOSS SHARE</span>':'';
+
+  // Custom split indicator
+  const devPct=parseFloat(t.dev_pct||60);
+  const bossPct=parseFloat(t.boss_pct||40);
+  const isCustomSplit=(devPct!==60||bossPct!==40);
+  const splitBadge=isCustomSplit&&!t.no_boss_share?`<span class="chip by">${devPct}/${bossPct} split</span>`:'';
 
   const displayPrice=status==='paid'?price:remaining;
   const tipColor=status==='unpaid'?'var(--dg)':status==='partial'?'var(--wn)':'var(--ac)';
@@ -937,7 +1178,7 @@ function rTask(t,showActions){
   return`<div class="ti ${status}">
     <div class="tih"><div class="tit">${esc(t.title)}</div>${priceBlock}</div>
     ${t.description?`<div class="dtxt">${esc(t.description)}</div>`:''}
-    <div class="tim">${chipHtml}<span class="chip by">by ${esc(t.created_by_name||'?')}</span></div>
+    <div class="tim">${stageChip}${payChip}${noBossChip}${splitBadge}<span class="chip by">by ${esc(t.created_by_name||'?')}</span></div>
     <div class="tid">🕐 ${fdt(t.task_date||t.created_at)}${paidInfo}</div>
     ${actions}
   </div>`;
@@ -1097,11 +1338,16 @@ async function submitTask(){
   const price=parseRaw(document.getElementById('tprice'));
   const dtv=document.getElementById('tdt').value;
   if(!title){showT('Please enter a title',true);return;}
-  if(!price||price<=0){showT('Please enter a valid price (Your 60%)',true);return;}
+  if(!price||price<=0){showT('Please enter a valid price (Your share)',true);return;}
+  const{dp,bp}=getCtxPcts('add');
   const{error}=await sb.from('tasks').insert({
     title,description:desc||null,price,
     created_by:CU.id,created_by_name:CU.name,
-    status:'unpaid',task_date:dtv?new Date(dtv).toISOString():new Date().toISOString()
+    status:'unpaid',task_date:dtv?new Date(dtv).toISOString():new Date().toISOString(),
+    stage:ADD_STAGE,
+    no_boss_share:ADD_NO_BOSS,
+    dev_pct:dp,
+    boss_pct:bp
   });
   if(error){showT('Error: '+error.message,true);return;}
   document.getElementById('ttitle').value='';
@@ -1110,6 +1356,11 @@ async function submitTask(){
   document.getElementById('t-orig-price').value='';
   document.getElementById('split-preview').style.display='none';
   document.getElementById('tdt').value=localDT();
+  // Reset add form state
+  ADD_STAGE='in_talks';ADD_NO_BOSS=false;ADD_DEFAULT_SPLIT=true;
+  setStage('add','in_talks');
+  updateNoBossUI('add',false);
+  renderSplitToggle('add',true);
   showT('✅ Task added!');
   navigate('tasks',document.querySelectorAll('.ni')[1]);
 }
@@ -1120,16 +1371,32 @@ function openEditTask(id){
   document.getElementById('et-title').value=PET.title||'';
   document.getElementById('et-desc').value=PET.description||'';
   const price=parseFloat(PET.price||0);
+  const devPct=parseFloat(PET.dev_pct||60);
+  const bossPct=parseFloat(PET.boss_pct||40);
+  const isDefault=(devPct===60&&bossPct===40);
+
+  // Percentages
+  document.getElementById('et-dev-pct').value=devPct;
+  document.getElementById('et-boss-pct').value=bossPct;
+  ET_DEFAULT_SPLIT=isDefault;
+  renderSplitToggle('et',isDefault);
+
+  // Prices
   document.getElementById('et-price').value=commaFmt(price.toFixed(2));
-  // Back-calculate original from dev price
-  const orig=price>0?price/0.6:0;
+  const orig=price>0?price/devPct*100:0;
   document.getElementById('et-orig').value=orig>0?commaFmt(orig.toFixed(2)):'';
   document.getElementById('et-dt').value=localDT(PET.task_date||PET.created_at);
-  if(price>0){
-    document.getElementById('et-split-preview').style.display='block';
-    document.getElementById('et-split-dev').textContent='LKR '+lkr(price);
-    document.getElementById('et-split-boss').textContent='LKR '+lkr(orig*0.4);
-  }else document.getElementById('et-split-preview').style.display='none';
+  if(price>0)showSplitPreview('et',price,orig*bossPct/100,devPct,bossPct);
+  else document.getElementById('et-split-preview').style.display='none';
+
+  // Stage
+  ET_STAGE=PET.stage||'in_talks';
+  setStage('et',ET_STAGE);
+
+  // No boss share
+  ET_NO_BOSS=!!PET.no_boss_share;
+  updateNoBossUI('et',ET_NO_BOSS);
+
   openMo('mo-edtask');
 }
 async function confirmEditTask(){
@@ -1140,9 +1407,14 @@ async function confirmEditTask(){
   const dtv=document.getElementById('et-dt').value;
   if(!title){showT('Please enter a title',true);return;}
   if(!price||price<=0){showT('Please enter a valid price',true);return;}
+  const{dp,bp}=getCtxPcts('et');
   const{error}=await sb.from('tasks').update({
     title,description:desc||null,price,
-    task_date:dtv?new Date(dtv).toISOString():new Date().toISOString()
+    task_date:dtv?new Date(dtv).toISOString():new Date().toISOString(),
+    stage:ET_STAGE,
+    no_boss_share:ET_NO_BOSS,
+    dev_pct:dp,
+    boss_pct:bp
   }).eq('id',PET.id);
   if(error){showT('Error: '+error.message,true);return;}
   closeMo('mo-edtask');showT('✏️ Task updated!');PET=null;
