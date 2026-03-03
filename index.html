@@ -891,13 +891,20 @@ function toggleCustomSplit(ctx){
 }
 function renderSplitToggle(ctx,isDefault){
   const tgl=document.getElementById(`${ctx}-default-tgl`);
-  const cpct=document.getElementById(`${ctx}-custom-pct`);
   if(tgl){if(isDefault)tgl.classList.add('on');else tgl.classList.remove('on');}
-  if(cpct)cpct.style.display=isDefault?'none':'block';
+
+  // Always show the % row — just lock/unlock the inputs
+  const cpct=document.getElementById(`${ctx}-custom-pct`);
+  if(cpct)cpct.style.display='block';
+
+  const de=document.getElementById(`${ctx}-dev-pct`);
+  const be=document.getElementById(`${ctx}-boss-pct`);
   if(isDefault){
-    const dp=document.getElementById(`${ctx}-dev-pct`);
-    const bp=document.getElementById(`${ctx}-boss-pct`);
-    if(dp)dp.value=60;if(bp)bp.value=40;
+    if(de){de.value=60;de.readOnly=true;de.style.opacity='.45';de.style.cursor='not-allowed';}
+    if(be){be.value=40;be.readOnly=true;be.style.opacity='.45';be.style.cursor='not-allowed';}
+  } else {
+    if(de){de.readOnly=false;de.style.opacity='1';de.style.cursor='';}
+    if(be){be.readOnly=false;be.style.opacity='1';be.style.cursor='';}
   }
   recalcSplit(ctx);
 }
@@ -905,6 +912,17 @@ function getCtxPcts(ctx){
   const dp=parseFloat(document.getElementById(`${ctx}-dev-pct`)?.value)||60;
   const bp=parseFloat(document.getElementById(`${ctx}-boss-pct`)?.value)||40;
   return{dp,bp};
+}
+function setCtxPcts(ctx,dp,bp){
+  const de=document.getElementById(`${ctx}-dev-pct`);
+  const be=document.getElementById(`${ctx}-boss-pct`);
+  if(de)de.value=dp;
+  if(be)be.value=bp;
+  // update label
+  const lbl=document.getElementById(`${ctx}-dev-pct-label`);
+  if(lbl)lbl.textContent=`(${dp}%)`;
+  const sub=document.getElementById(`${ctx}-split-sub`);
+  if(sub)sub.textContent=`You ${dp}% · Admin ${bp}%`;
 }
 function recalcSplit(ctx){
   const{dp,bp}=getCtxPcts(ctx);
@@ -929,25 +947,47 @@ function recalcSplit(ctx){
 // ── SPLIT CALC ────────────────────────────────────────
 function calcFromOrig(ctx){
   const isAdd=ctx==='add';
+  const isDefault=isAdd?ADD_DEFAULT_SPLIT:ET_DEFAULT_SPLIT;
   const origEl=document.getElementById(isAdd?'t-orig-price':'et-orig');
   const devEl=document.getElementById(isAdd?'tprice':'et-price');
   const orig=parseRaw(origEl);
   if(!orig){devEl.value='';hideSplitPrev(ctx);return;}
   const{dp,bp}=getCtxPcts(ctx);
-  const dev=orig*dp/100;
-  devEl.value=commaFmt(dev.toFixed(2));
-  showSplitPreview(ctx,dev,orig*bp/100,dp,bp);
+  if(isDefault){
+    const dev=orig*dp/100;
+    devEl.value=commaFmt(dev.toFixed(2));
+    showSplitPreview(ctx,dev,orig*bp/100,dp,bp);
+  } else {
+    const dev=parseRaw(devEl);
+    if(dev>0&&orig>0){
+      const calcDp=Math.round((dev/orig)*100);
+      const calcBp=100-calcDp;
+      setCtxPcts(ctx,calcDp,calcBp);
+      showSplitPreview(ctx,dev,orig-dev,calcDp,calcBp);
+    } else hideSplitPrev(ctx);
+  }
 }
 function calcFromDev(ctx){
   const isAdd=ctx==='add';
+  const isDefault=isAdd?ADD_DEFAULT_SPLIT:ET_DEFAULT_SPLIT;
   const origEl=document.getElementById(isAdd?'t-orig-price':'et-orig');
   const devEl=document.getElementById(isAdd?'tprice':'et-price');
   const dev=parseRaw(devEl);
-  if(!dev){if(origEl)origEl.value='';hideSplitPrev(ctx);return;}
+  if(!dev){if(isDefault&&origEl)origEl.value='';hideSplitPrev(ctx);return;}
   const{dp,bp}=getCtxPcts(ctx);
-  const total=dev/dp*100;
-  if(origEl)origEl.value=commaFmt(total.toFixed(2));
-  showSplitPreview(ctx,dev,total*bp/100,dp,bp);
+  if(isDefault){
+    const total=dev/dp*100;
+    if(origEl)origEl.value=commaFmt(total.toFixed(2));
+    showSplitPreview(ctx,dev,total*bp/100,dp,bp);
+  } else {
+    const orig=parseRaw(origEl);
+    if(orig>0&&dev>0){
+      const calcDp=Math.round((dev/orig)*100);
+      const calcBp=100-calcDp;
+      setCtxPcts(ctx,calcDp,calcBp);
+      showSplitPreview(ctx,dev,orig-dev,calcDp,calcBp);
+    } else hideSplitPrev(ctx);
+  }
 }
 function hideSplitPrev(ctx){
   const b=document.getElementById(ctx==='add'?'split-preview':'et-split-preview');
@@ -1585,7 +1625,6 @@ function buildGroups(arr,f,fn){
 }
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-  
 // ── INIT ──────────────────────────────────────────────
 (()=>{
   // Apply saved theme
