@@ -424,7 +424,7 @@ input[type=datetime-local]{color-scheme:dark}
             <div class="sv pur">LKR <span id="b-paid">0</span></div>
           </div>
           <div class="scard">
-            <div class="sl">Loans Given to Dev</div>
+            <div class="sl">Admin Loans Given to Dev</div>
             <div class="sv org">LKR <span id="b-loans">0</span></div>
           </div>
         </div>
@@ -439,10 +439,10 @@ input[type=datetime-local]{color-scheme:dark}
           </div>
         </div>
         <div class="scard" style="margin-bottom:12px">
-          <div class="sl">Your Earnings from Tasks (Boss Share)</div>
+          <div class="sl">Your Earnings from Tasks (Admin Share)</div>
           <div class="sv grn">LKR <span id="b-earnings">0</span></div>
         </div>
-        <button class="btn btn-s" style="margin-bottom:14px;border-color:var(--ac2);color:var(--ac2)" onclick="openFreePayModal()">💰 Send Money Without Task (Loan) →</button>
+        <button class="btn btn-s" style="margin-bottom:14px;border-color:var(--ac2);color:var(--ac2)" onclick="openFreePayModal()">💰 Send Money Without Task (Admin Loan) →</button>
       </div>
 
       <!-- DEV DASH -->
@@ -464,9 +464,9 @@ input[type=datetime-local]{color-scheme:dark}
         </div>
         <!-- LOAN BOX — only shown if boss gave loans -->
         <div id="d-loan-box" class="loan-box" style="display:none">
-          <div class="lb-label">⚠️ OWED BACK TO BOSS — BOSS SENT YOU MONEY AS LOAN</div>
+          <div class="lb-label">⚠️ OWED BACK TO ADMIN — ADMIN SENT YOU MONEY AS LOAN</div>
           <div class="lb-amt">LKR <span id="d-loans">0</span></div>
-          <div class="lb-sub">Boss sent this money outside of tasks. You owe it back.</div>
+          <div class="lb-sub">Admin sent this money outside of tasks. You owe it back.</div>
         </div>
       </div>
 
@@ -494,7 +494,7 @@ input[type=datetime-local]{color-scheme:dark}
       <div class="frow">
         <button class="ftab active" onclick="filterPays('all',this)">All</button>
         <button class="ftab" onclick="filterPays('task',this)">Task Payments</button>
-        <button class="ftab" onclick="filterPays('loan',this)">Boss Loans</button>
+        <button class="ftab" onclick="filterPays('loan',this)">Admin Loans</button>
       </div>
       <div id="plist"><div class="spn"></div></div>
     </div>
@@ -521,8 +521,8 @@ input[type=datetime-local]{color-scheme:dark}
         <!-- NO BOSS SHARE TOGGLE -->
         <div class="tgl-row" onclick="toggleNoBossShare('add')" style="margin-bottom:14px">
           <div class="tgl-info">
-            <div class="tgl-label">🚫 No Boss Share</div>
-            <div class="tgl-sub">Turn on if boss gets nothing from this task</div>
+            <div class="tgl-label">🚫 No Admin Share</div>
+            <div class="tgl-sub">Turn on if admin gets nothing from this task</div>
           </div>
           <div class="tgl" id="add-noboss-tgl"></div>
         </div>
@@ -535,7 +535,7 @@ input[type=datetime-local]{color-scheme:dark}
           <div class="tgl-row" onclick="toggleCustomSplit('add')" style="margin-bottom:10px">
             <div class="tgl-info">
               <div class="tgl-label">Default 60/40 Split</div>
-              <div class="tgl-sub" id="add-split-sub">You 60% · Boss 40% — tap to customise</div>
+              <div class="tgl-sub" id="add-split-sub">You 60% · Admin 40% — tap to customise</div>
             </div>
             <div class="tgl on" id="add-default-tgl"></div>
           </div>
@@ -549,7 +549,7 @@ input[type=datetime-local]{color-scheme:dark}
               </div>
               <div class="cs-mid">+</div>
               <div>
-                <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Boss %</div>
+                <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Admin %</div>
                 <input type="number" class="pct-input" id="add-boss-pct" value="40" min="1" max="99" oninput="recalcSplit('add')">
               </div>
             </div>
@@ -570,7 +570,7 @@ input[type=datetime-local]{color-scheme:dark}
             <div class="sb-title">💡 SPLIT BREAKDOWN</div>
             <div class="split-grid">
               <div class="split-item"><div class="split-label">You Get <span id="split-dev-pct">(60%)</span></div><div class="split-val" style="color:var(--ac)" id="split-dev">LKR 0</div></div>
-              <div class="split-item"><div class="split-label">Boss Gets <span id="split-boss-pct">(40%)</span></div><div class="split-val" style="color:var(--ac2)" id="split-boss">LKR 0</div></div>
+              <div class="split-item"><div class="split-label">Admin Gets <span id="split-boss-pct">(40%)</span></div><div class="split-val" style="color:var(--ac2)" id="split-boss">LKR 0</div></div>
             </div>
           </div>
         </div>
@@ -628,9 +628,9 @@ input[type=datetime-local]{color-scheme:dark}
 <div class="mo" id="mo-freepay">
   <div class="modal">
     <div class="mh"></div>
-    <div class="mt">💸 Send Money to Dev (Loan)</div>
+    <div class="mt">💸 Send Money to Dev (Admin Loan)</div>
     <div style="background:var(--wnd);border:1px solid rgba(255,179,64,.25);border-radius:12px;padding:12px;margin-bottom:14px;font-size:11px;color:var(--wn)">
-      ⚠️ This payment is NOT linked to any task. It will appear as a <strong>loan from boss</strong> — the developer owes this back.
+      ⚠️ This payment is NOT linked to any task. It will appear as an <strong>admin loan</strong> — the developer owes this back.
     </div>
     <div class="fg"><label>Amount (LKR) *</label><div class="pw"><span class="ps">LKR</span><input type="text" id="fp-amt" placeholder="0" inputmode="decimal" oninput="fmtInput(this)"></div></div>
     <div class="fg"><label>Payment Method</label><select id="fp-meth"><option value="Cash">💵 Cash</option><option value="Bank Transfer">🏦 Bank Transfer</option><option value="Other">🔄 Other</option></select></div>
@@ -663,8 +663,8 @@ input[type=datetime-local]{color-scheme:dark}
     <!-- NO BOSS SHARE TOGGLE -->
     <div class="tgl-row" onclick="toggleNoBossShare('et')" style="margin-bottom:14px">
       <div class="tgl-info">
-        <div class="tgl-label">🚫 No Boss Share</div>
-        <div class="tgl-sub">Turn on if boss gets nothing from this task</div>
+        <div class="tgl-label">🚫 No Admin Share</div>
+        <div class="tgl-sub">Turn on if admin gets nothing from this task</div>
       </div>
       <div class="tgl" id="et-noboss-tgl"></div>
     </div>
@@ -676,7 +676,7 @@ input[type=datetime-local]{color-scheme:dark}
       <div class="tgl-row" onclick="toggleCustomSplit('et')" style="margin-bottom:10px">
         <div class="tgl-info">
           <div class="tgl-label">Default 60/40 Split</div>
-          <div class="tgl-sub" id="et-split-sub">You 60% · Boss 40%</div>
+          <div class="tgl-sub" id="et-split-sub">You 60% · Admin 40%</div>
         </div>
         <div class="tgl on" id="et-default-tgl"></div>
       </div>
@@ -689,7 +689,7 @@ input[type=datetime-local]{color-scheme:dark}
           </div>
           <div class="cs-mid">+</div>
           <div>
-            <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Boss %</div>
+            <div style="font-size:9px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;text-align:center">Admin %</div>
             <input type="number" class="pct-input" id="et-boss-pct" value="40" min="1" max="99" oninput="recalcSplit('et')">
           </div>
         </div>
@@ -709,7 +709,7 @@ input[type=datetime-local]{color-scheme:dark}
         <div class="sb-title">💡 SPLIT BREAKDOWN</div>
         <div class="split-grid">
           <div class="split-item"><div class="split-label">You Get <span id="et-split-dev-pct">(60%)</span></div><div class="split-val" style="color:var(--ac)" id="et-split-dev">LKR 0</div></div>
-          <div class="split-item"><div class="split-label">Boss Gets <span id="et-split-boss-pct">(40%)</span></div><div class="split-val" style="color:var(--ac2)" id="et-split-boss">LKR 0</div></div>
+          <div class="split-item"><div class="split-label">Admin Gets <span id="et-split-boss-pct">(40%)</span></div><div class="split-val" style="color:var(--ac2)" id="et-split-boss">LKR 0</div></div>
         </div>
       </div>
     </div>
@@ -912,7 +912,7 @@ function recalcSplit(ctx){
   if(lbl)lbl.textContent=`(${dp}%)`;
   // update sub label
   const sub=document.getElementById(`${ctx}-split-sub`);
-  if(sub)sub.textContent=`You ${dp}% · Boss ${bp}%`;
+  if(sub)sub.textContent=`You ${dp}% · Admin ${bp}%`;
   // Recalculate amounts if a price is entered
   const isAdd=ctx==='add';
   const devEl=document.getElementById(isAdd?'tprice':'et-price');
@@ -1012,7 +1012,7 @@ function handleLogout(){localStorage.removeItem('bsu');CU=null;document.getEleme
 function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
-  document.getElementById('udisp').textContent=CU.name+' · '+CU.role;
+  document.getElementById('udisp').textContent=CU.name+' · '+(CU.role==='boss'?'Admin':CU.role==='developer'?'Dev':CU.role);
   if(CU.role==='boss')document.getElementById('rdot').classList.add('boss');
   document.getElementById('tdt').value=localDT();
   // Init add task form state
@@ -1148,14 +1148,18 @@ function rTask(t,showActions){
   else if(status==='partial')payChip=`<span class="chip partial">⬤ ${pct}% PAID</span>`;
   else payChip=`<span class="chip unpaid">✗ 0% — UNPAID</span>`;
 
-  // No boss share badge
-  const noBossChip=t.no_boss_share?'<span class="chip no-share">🚫 NO BOSS SHARE</span>':'';
-
-  // Custom split indicator
   const devPct=parseFloat(t.dev_pct||60);
   const bossPct=parseFloat(t.boss_pct||40);
-  const isCustomSplit=(devPct!==60||bossPct!==40);
-  const splitBadge=isCustomSplit&&!t.no_boss_share?`<span class="chip by">${devPct}/${bossPct} split</span>`:'';
+
+  // No boss share badge
+  const noBossChip=''; // removed per request
+
+  // Single share chip
+  const shareChip=t.no_boss_share
+    ? `<span class="chip no-share">👤 DEV SOLO</span>`
+    : `<span class="chip by">${devPct}% / ${bossPct}%</span>`;
+
+  const splitBadge=''; // merged into shareChip above
 
   const displayPrice=status==='paid'?price:remaining;
   const tipColor=status==='unpaid'?'var(--dg)':status==='partial'?'var(--wn)':'var(--ac)';
@@ -1178,7 +1182,7 @@ function rTask(t,showActions){
   return`<div class="ti ${status}">
     <div class="tih"><div class="tit">${esc(t.title)}</div>${priceBlock}</div>
     ${t.description?`<div class="dtxt">${esc(t.description)}</div>`:''}
-    <div class="tim">${stageChip}${payChip}${noBossChip}${splitBadge}<span class="chip by">by ${esc(t.created_by_name||'?')}</span></div>
+    <div class="tim">${stageChip}${payChip}${shareChip}</div>
     <div class="tid">🕐 ${fdt(t.task_date||t.created_at)}${paidInfo}</div>
     ${actions}
   </div>`;
@@ -1252,7 +1256,7 @@ async function submitFreePayment(){
   if(!amt||amt<=0){showT('Please enter a valid amount',true);return;}
   const meth=document.getElementById('fp-meth').value,note=document.getElementById('fp-note').value.trim(),dtv=document.getElementById('fp-dt').value;
   const pd=dtv?new Date(dtv).toISOString():new Date().toISOString();
-  const{error}=await sb.from('payments').insert({amount:amt,method:meth,note:(note?note+' — ':'')+' [Boss Loan — No Task]',payment_date:pd,recorded_by:CU.id,recorded_by_name:CU.name});
+  const{error}=await sb.from('payments').insert({amount:amt,method:meth,note:(note?note+' — ':'')+' [Admin Loan — No Task]',payment_date:pd,recorded_by:CU.id,recorded_by_name:CU.name});
   if(error){showT('Error: '+error.message,true);return;}
   closeMo('mo-freepay');showT('✅ Loan/Payment recorded!');
   navigate('dashboard',document.querySelector('.ni'));
@@ -1581,6 +1585,7 @@ function buildGroups(arr,f,fn){
 }
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+  
 // ── INIT ──────────────────────────────────────────────
 (()=>{
   // Apply saved theme
